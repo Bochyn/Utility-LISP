@@ -1,34 +1,46 @@
+;;; ============================================================================
+;;; DimChain.lsp
+;;;
+;;; Creates a chain of aligned dimensions and optionally wraps them into a
+;;; stable Block or Group.
+;;;
+;;; Command:    DimChain
+;;; Alias:      none
+;;; Repository: https://github.com/Bochyn/Utility-LISP
+;;; License:    MIT
+;;; ============================================================================
+
 (defun c:DimChain (/ *error* lastEnt ent ss choice blockName blockIndex insPt)
 
-  ;; --- Obsługa błędów ---
+  ;; Error handler
   (defun *error* (msg)
     (if (and msg (not (wcmatch (strcase msg) "*BREAK*,*CANCEL*,*EXIT*")))
-      (princ (strcat "\nBłąd: " msg))
+      (princ (strcat "\nError: " msg))
     )
     (setvar 'CMDECHO 1)
     (princ)
   )
 
   (setvar 'CMDECHO 0)
-  
-  ;; 1. Zapamiętaj ostatni obiekt
+
+  ;; 1. Remember the last entity before we start
   (setq lastEnt (entlast))
 
-  ;; 2. Uruchom pierwszy wymiar
-  (princ "\nWstaw pierwszy wymiar dopasowany:")
+  ;; 2. Run the first aligned dimension
+  (princ "\nPlace the first aligned dimension:")
   (command "_.DIMALIGNED")
   (while (> (getvar "CMDACTIVE") 0) (command pause))
 
-  ;; 3. Sprawdź czy powstał wymiar
+  ;; 3. Check whether a dimension was actually created
   (if (not (equal lastEnt (entlast)))
     (progn
-      (princ "\nKontynuuj wymiarowanie (Enter lub ESC aby zakończyć):")
-      
-      ;; Dimcontinue dla ostatniego obiektu
+      (princ "\nContinue dimensioning (Enter or ESC to finish):")
+
+      ;; Dimcontinue from the last entity
       (command "_.DIMCONTINUE" (entlast))
       (while (> (getvar "CMDACTIVE") 0) (command pause))
 
-      ;; 4. Zbieranie nowych wymiarów
+      ;; 4. Collect the newly created dimensions
       (setq ss (ssadd))
       (if lastEnt
         (setq ent (entnext lastEnt))
@@ -42,52 +54,57 @@
         (setq ent (entnext ent))
       )
 
-      ;; 5. Decyzja: Blok / Grupa
+      ;; 5. Decide: Block / Group / Skip
       (if (> (sslength ss) 0)
         (progn
-          ;; --- TUTAJ JEST NAPRAWA "UCIEKANIA W KOSMOS" ---
-          ;; Rozkojarz wymiary zanim zrobisz z nich blok
-          (command "_.DIMDISASSOCIATE" ss "") 
-          ;; ------------------------------------------------
+          ;; --- FIX FOR THE "RUNAWAY INTO SPACE" BUG ---
+          ;; Associative dimensions drift away from their defpoints when the
+          ;; host geometry is converted into a block. Disassociate them first
+          ;; so the block stays anchored where it was created.
+          (command "_.DIMDISASSOCIATE" ss "")
+          ;; --------------------------------------------
 
           (initget "1 2 3")
-          (setq choice (getkword "\nWybierz akcję: [1=Block, 2=Group, 3=Skip] <1>: "))
+          (setq choice (getkword "\nChoose action: [1=Block, 2=Group, 3=Skip] <1>: "))
           (if (not choice) (setq choice "1"))
 
           (cond
-            ;; --- BLOK ---
+            ;; --- BLOCK ---
             ((equal choice "1")
              (setq blockIndex 1 blockName "DimBlock1")
              (while (tblsearch "BLOCK" blockName)
                (setq blockIndex (1+ blockIndex))
                (setq blockName (strcat "DimBlock" (itoa blockIndex)))
              )
-             
-             ;; Używamy kodu 13 (Punkt geometrii, a nie tekstu - to co chcieliśmy)
+
+             ;; DXF 13 is the geometry definition point (not text position)
              (setq insPt (cdr (assoc 13 (entget (ssname ss 0)))))
-             
+
              (command "._-BLOCK" blockName insPt ss "")
              (command "._-INSERT" blockName insPt 1 1 0)
-             (princ (strcat "\nUtworzono STABILNY blok: " blockName))
+             (princ (strcat "\nCreated stable block: " blockName))
             )
 
-            ;; --- GRUPA ---
+            ;; --- GROUP ---
             ((equal choice "2")
              (command "._GROUP" "_C" "*" "" ss "")
-             (princ "\nUtworzono grupę.")
+             (princ "\nGroup created.")
             )
 
-            ;; --- POMIŃ ---
+            ;; --- SKIP ---
             ((equal choice "3")
-             (princ "\nPozostawiono wymiary bez zmian.")
+             (princ "\nDimensions left as-is.")
             )
           )
         )
-        (princ "\nNie wykryto nowych wymiarów.")
+        (princ "\nNo new dimensions detected.")
       )
     )
-    (princ "\nAnulowano.")
+    (princ "\nCancelled.")
   )
   (setvar 'CMDECHO 1)
   (princ)
 )
+
+(princ "\nLoaded: DimChain. Type DimChain at the command line.")
+(princ)

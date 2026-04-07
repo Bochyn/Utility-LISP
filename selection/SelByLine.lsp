@@ -1,28 +1,33 @@
+;;; ============================================================================
+;;; SelByLine.lsp
+;;;
+;;; Selects all objects in the drawing whose lineweight matches that of a
+;;; user-picked reference object (resolving BYLAYER through the layer table).
+;;;
+;;; Command:    SelByLine
+;;; Alias:      none
+;;; Repository: https://github.com/Bochyn/Utility-LISP
+;;; License:    MIT
+;;; ============================================================================
+
 (defun c:SelByLine (/ selObj entData lineweight layerName layerWeight filterList)
-  ;; Prompt user to select an object
   (setq selObj (car (entsel "\nSelect an object to match lineweight: ")))
   (if selObj
     (progn
-      ;; Get the entity data
       (setq entData (entget selObj))
-      ;; Determine the lineweight of the selected object
-      (setq lineweight (cdr (assoc 370 entData))) ; 370 is the lineweight group code
-      ;; Check if lineweight is BYLAYER (-1 indicates BYLAYER in AutoCAD)
+      ;; DXF 370 = lineweight. Value -1 means BYLAYER, so we must resolve
+      ;; the effective lineweight from the object's layer definition.
+      (setq lineweight (cdr (assoc 370 entData)))
       (if (= lineweight -1)
         (progn
-          ;; Get the object's layer
-          (setq layerName (cdr (assoc 8 entData)))
-          ;; Get the lineweight set for the layer
+          (setq layerName   (cdr (assoc 8 entData)))           ; DXF 8 = layer name
           (setq layerWeight (cdr (assoc 370 (tblsearch "layer" layerName))))
-          ;; Use the layer's lineweight for filtering
-          (setq filterList (list (cons 370 layerWeight)))
+          (setq filterList  (list (cons 370 layerWeight)))
         )
-        ;; Use the object's lineweight directly for filtering
         (setq filterList (list (cons 370 lineweight)))
       )
-      ;; Select all objects matching the lineweight
+      ;; ssget "X" performs a database-wide filtered selection.
       (sssetfirst nil (ssget "X" filterList))
-      ;; Output success message
       (princ (strcat "\nAll objects with lineweight "
                      (if (= lineweight -1)
                        (strcat "BYLAYER (" (rtos layerWeight) ")")
@@ -30,8 +35,10 @@
                      )
                      " have been selected."))
     )
-    ;; Handle case where no object is selected
     (princ "\nNo object selected.")
   )
-  (princ) ; End the function
+  (princ)
 )
+
+(princ "\nLoaded: SelByLine. Type SelByLine at the command line.")
+(princ)

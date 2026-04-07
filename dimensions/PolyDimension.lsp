@@ -1,9 +1,17 @@
-;;;-------------------------------------------------------
-;;; PolyDimension - Simple Polyline Dimension Tool
-;;; Creates dimensions at polyline intersections
-;;;-------------------------------------------------------
+;;; ============================================================================
+;;; PolyDimension.lsp
+;;;
+;;; Places aligned dimensions along a polyline at every vertex and at every
+;;; intersection with a user-selected set of entities.
+;;;
+;;; Command:    PolyDimension
+;;; Alias:      none
+;;; Repository: https://github.com/Bochyn/Utility-LISP
+;;; License:    MIT
+;;; ============================================================================
 
-(defun c:polydimension (/ polyent osnap intersections entities pt1 pt2)
+(defun c:polydimension (/ polyent osnap intersections entities pt1 pt2
+                          i ent inters j pt vertices)
   ;; Save and reset system variables
   (setq osnap (getvar "OSMODE"))
   (setvar "OSMODE" 0)
@@ -93,7 +101,7 @@
 )
 
 ;; Get polyline vertices
-(defun get-poly-vertices (polyent / obj verts pts)
+(defun get-poly-vertices (polyent / obj verts pts i)
   (setq obj (vlax-ename->vla-object polyent))
   (setq pts (list))
   
@@ -129,7 +137,7 @@
 )
 
 ;; Sort points by distance along polyline
-(defun sort-by-distance (polyent pts / obj poly-pts result)
+(defun sort-by-distance (polyent pts / obj poly-pts result i unique-pts)
   (setq obj (vlax-ename->vla-object polyent))
   (setq poly-pts (get-poly-vertices polyent))
   
@@ -155,7 +163,8 @@
 )
 
 ;; Calculate distance along polyline to a point
-(defun distance-along-polyline (poly-pts pt / best-dist total-dist i best-seg best-param)
+(defun distance-along-polyline (poly-pts pt / best-dist total-dist i best-seg best-param
+                                              p1 p2 param proj dist seg-len)
   (setq best-dist 1e99)
   (setq best-seg 0)
   (setq best-param 0.0)
@@ -228,5 +237,5 @@
   (vl-load-com)
 )
 
-(princ "\nType 'polydimension' to run.")
+(princ "\nLoaded: PolyDimension. Type PolyDimension at the command line.")
 (princ)

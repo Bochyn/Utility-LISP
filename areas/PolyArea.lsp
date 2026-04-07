@@ -1,57 +1,71 @@
+;;; ============================================================================
+;;; PolyArea.lsp
+;;;
+;;; Inserts a LIVE AutoCAD field displaying the area of a single closed
+;;; polyline; the field updates automatically when the polyline changes.
+;;;
+;;; Command:    POLYAREA
+;;; Alias:      none
+;;; Repository: https://github.com/Bochyn/Utility-LISP
+;;; License:    MIT
+;;; ============================================================================
+
 (defun c:Polyarea (/ ent obj objID fieldStr pt txtHeight)
-  (prompt "\nWybierz polilinię: ")
+  (prompt "\nSelect a polyline: ")
   (setq ent (car (entsel)))
-  
+
   (if ent
     (progn
-      ;; Sprawdzenie czy to polilinia
+      ;; Verify the selected entity is a polyline.
       (if (or (= (cdr (assoc 0 (entget ent))) "LWPOLYLINE")
               (= (cdr (assoc 0 (entget ent))) "POLYLINE"))
         (progn
           (setq obj (vlax-ename->vla-object ent))
-          
-          ;; Sprawdzenie czy polilinia jest zamknięta
+
+          ;; Verify the polyline is closed.
           (if (= (vlax-get-property obj 'Closed) :vlax-true)
             (progn
-              ;; Pytanie o wysokość tekstu
-              (setq txtHeight (getreal (strcat "\nPodaj wysokość tekstu <" (rtos (getvar "TEXTSIZE") 2 2) ">: ")))
+              ;; Ask for the text height, default to current TEXTSIZE.
+              (setq txtHeight (getreal (strcat "\nText height <" (rtos (getvar "TEXTSIZE") 2 2) ">: ")))
               (if (not txtHeight) (setq txtHeight (getvar "TEXTSIZE")))
-              
-              ;; Pobranie Object ID
+
+              ;; Fetch the AutoCAD ObjectID used inside the field expression.
               (setq objID (vla-get-objectid obj))
-              
-              ;; Tworzenie stringa pola z formatowaniem
-              ;; %pr2 - zaokrąglenie do 2 miejsc po przecinku (0.00)
-              (setq fieldStr (strcat 
-                "%<\\AcObjProp Object(%<\\_ObjId " 
-                (itoa objID) 
+
+              ;; Build the AutoCAD field expression.
+              ;; Format directives:
+              ;;   %lu2         - linear units, decimal mode
+              ;;   %ct8[0.0001] - conversion factor (mm^2 -> m^2)
+              ;;   %pr2         - precision: 2 decimal places (0.00)
+              ;;   %ps[]        - prefix/suffix (none)
+              ;;   %th44        - thousands separator
+              (setq fieldStr (strcat
+                "%<\\AcObjProp Object(%<\\_ObjId "
+                (itoa objID)
                 ">%).Area \\f \"%lu2%ct8[0.0001]%pr2%ps[]%th44\">%"
               ))
-              
-              ;; Wybór punktu wstawienia
-              (setq pt (getpoint "\nWskaż punkt wstawienia pola tekstowego: "))
-              
+
+              ;; Pick the insertion point for the MTEXT entity.
+              (setq pt (getpoint "\nPick insertion point for the field: "))
+
               (if pt
                 (progn
                   (command "_MTEXT" pt "_Height" txtHeight "_Width" 0 fieldStr "")
-                  (prompt "\nPole tekstowe z powierzchnią zostało utworzone!")
-                  (prompt "\nFormatowanie: conversion factor 0.0001, zaokrąglenie do 0.00")
+                  (prompt "\nArea field created.")
+                  (prompt "\nFormat: conversion factor 0.0001, precision 0.00")
                 )
               )
             )
-            (prompt "\nWybrana polilinia nie jest zamknięta!")
+            (prompt "\nThe selected polyline is not closed.")
           )
         )
-        (prompt "\nWybrany obiekt nie jest polilinią!")
+        (prompt "\nThe selected object is not a polyline.")
       )
     )
-    (prompt "\nNie wybrano żadnego obiektu!")
+    (prompt "\nNo object selected.")
   )
   (princ)
 )
 
-(prompt "\nProgram załadowany. Dostępne komendy:")
-(prompt "\n  POLYAREA - powierzchnia pojedynczej polilinii")
-(prompt "\n  SUMAREA - suma powierzchni wielu polilinii")
-(prompt "\nFormatowanie: conversion factor 0.0001, zaokrąglenie do 0.00")
+(princ "\nLoaded: POLYAREA. Type POLYAREA at the command line.")
 (princ)
